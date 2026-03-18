@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบรายงานผลคะแนน ผว.กทม. และ ส.ก.</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- เพิ่ม SweetAlert2 Library -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        tailwind.config = { theme: { fontFamily: { sans: ['Prompt', 'sans-serif'] } } }
+    </script>
+    <style>
+        .upload-active { border-color: #2563eb; background-color: #eff6ff; }
+        
+        .count-badge {
+            position: absolute; top: -10px; right: -10px;
+            background-color: #16a34a; color: white; border: 2px solid white;
+            border-radius: 50%; width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 20; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+        
+        /* ปรับแต่ง SweetAlert ให้ใช้ฟอนต์ Prompt */
+        .swal2-container { font-family: 'Prompt', sans-serif !important; }
+        .swal2-title { font-weight: 700 !important; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans pb-40 text-slate-800">
+
+    <!-- Navbar -->
+    <nav class="bg-blue-800 text-white p-4 sticky top-0 z-30 shadow-md flex justify-between items-center">
+        <div>
+            <h1 class="text-xl font-bold"><i class="fa-solid fa-file-signature"></i> รายงานผลคะแนน</h1>
+            <p class="text-xs text-blue-200">เลือกตั้ง ผว.กทม. และ ส.ก.</p>
+        </div>
+        <button onclick="clearDraft()" class="text-xs bg-blue-900 px-3 py-1.5 rounded-lg text-blue-200 hover:text-white transition shadow-sm">
+            <i class="fa-solid fa-rotate-left"></i> ล้างค่าเดิม
+        </button>
+    </nav>
+
+    <form id="voteForm" class="p-4 max-w-lg mx-auto space-y-6" onsubmit="submitForm(event)">
+        
+        <!-- 1. หน่วยเลือกตั้ง -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+            <h2 class="text-lg font-bold text-blue-800 mb-4 flex items-center gap-2"><i class="fa-solid fa-map-location-dot"></i> หน่วยเลือกตั้ง</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="block font-semibold text-gray-600 mb-1">แขวง <span class="text-red-500">*</span></label>
+                    <select id="district" class="w-full p-3 text-lg rounded-xl border bg-gray-50 focus:ring-2 focus:ring-blue-500 transition outline-none" onchange="updateUnits(); saveDraft();" required>
+                        <option value="">เลือกแขวง...</option>
+                        <option value="บางคอแหลม">บางคอแหลม</option>
+                        <option value="วัดพระยาไกร">วัดพระยาไกร</option>
+                        <option value="บางโคล่">บางโคล่</option>
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block font-semibold text-gray-600 mb-1">หน่วยที่ <span class="text-red-500">*</span></label>
+                    <select id="unitNo" class="w-full p-3 text-lg rounded-xl border bg-gray-50 focus:ring-2 focus:ring-blue-500 transition outline-none" disabled required onchange="saveDraft()">
+                        <option value="">เลือกแขวงก่อน</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. เลือกตั้ง ผว.กทม. (ธีมสีเขียว) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="bg-green-600 text-white p-4 font-bold flex justify-between items-center">
+                <span class="text-lg"><i class="fa-solid fa-user-tie mr-2"></i> ส่วนที่ 1: เลือกตั้ง ผว.กทม.</span>
+            </div>
+            <div class="p-5">
+                <div class="bg-green-50/50 rounded-xl p-4 border border-green-100">
+                    <label class="border-2 border-dashed border-green-400 bg-white rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-green-50 transition-all text-center min-h-[160px] relative overflow-visible shadow-sm" id="box_gov_doc">
+                        <div class="icon-container flex flex-col items-center">
+                            <i class="fa-solid fa-camera text-green-500 text-4xl mb-3"></i>
+                        </div>
+                        <div class="text-center label-text">
+                            <span class="block font-bold text-gray-800 text-lg">รายงานคะแนน ผว.กทม.</span>
+                            <span class="block font-bold text-green-700 text-xl mt-1">(ผ.ถ. 5/7)</span>
+                            <span class="block text-sm text-gray-500 mt-2 bg-gray-100 px-3 py-1 rounded-full inline-block">แตะเพื่อถ่ายรูป / เลือกรูป</span>
+                        </div>
+                        <input type="file" id="file_gov_doc" accept="image/*" class="hidden" onchange="handleFileSelect(this, 'box_gov_doc')">
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. เลือกตั้ง ส.ก. (ธีมสีน้ำตาล ใช้ amber-800) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="bg-amber-800 text-white p-4 font-bold flex justify-between items-center">
+                <span class="text-lg"><i class="fa-solid fa-users mr-2"></i> ส่วนที่ 2: เลือกตั้ง ส.ก.</span>
+            </div>
+            <div class="p-5">
+                <div class="bg-amber-50/50 rounded-xl p-4 border border-amber-100">
+                    <label class="border-2 border-dashed border-amber-400 bg-white rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-amber-50 transition-all text-center min-h-[160px] relative overflow-visible shadow-sm" id="box_council_doc">
+                        <div class="icon-container flex flex-col items-center">
+                            <i class="fa-solid fa-camera text-amber-600 text-4xl mb-3"></i>
+                        </div>
+                        <div class="text-center label-text">
+                            <span class="block font-bold text-gray-800 text-lg">รายงานคะแนน ส.ก.</span>
+                            <span class="block font-bold text-amber-700 text-xl mt-1">(ส.ถ. 5/7)</span>
+                            <span class="block text-sm text-gray-500 mt-2 bg-gray-100 px-3 py-1 rounded-full inline-block">แตะเพื่อถ่ายรูป / เลือกรูป</span>
+                        </div>
+                        <input type="file" id="file_council_doc" accept="image/*" class="hidden" onchange="handleFileSelect(this, 'box_council_doc')">
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20 safe-area-bottom">
+            <button type="submit" id="submitBtn" class="w-full py-4 rounded-xl font-bold text-xl text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all shadow-md flex justify-center items-center gap-2">
+                <i class="fa-solid fa-cloud-arrow-up"></i> <span>ส่งข้อมูลและรูปภาพ</span>
+            </button>
+        </div>
+    </form>
+    
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center hidden backdrop-blur-md">
+        <div class="bg-white p-8 rounded-3xl flex flex-col items-center max-w-xs w-full shadow-2xl animate-[popIn_0.3s]">
+            <div class="w-16 h-16 border-4 border-gray-100 border-t-blue-600 rounded-full animate-spin mb-5"></div>
+            <p class="text-slate-800 font-bold text-xl mb-2">กำลังดำเนินการ</p>
+            <p id="loadingStatus" class="text-sm text-slate-500 text-center font-medium">ระบบกำลังเตรียมส่งรูปภาพ...</p>
+        </div>
+    </div>
+
+    <script>
+        // *** ใส่ URL ของ Apps Script ของคุณที่นี่ ***
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwyRlh1EojYJSkWbGe8mV1oN7Nf5xWL3mosYwf0gUE8ouDXZNKfHMhzN-R2Duu8V-6Q/exec'; 
+
+        let fileStorage = {};
+
+        function updateUnits() {
+            const district = document.getElementById('district').value;
+            const unitSelect = document.getElementById('unitNo');
+            const savedUnit = localStorage.getItem('draft_unitNo');
+
+            unitSelect.innerHTML = '<option value="">เลือกหน่วย...</option>';
+            let max = 0;
+            if(district === 'บางคอแหลม') max = 27; 
+            else if(district === 'วัดพระยาไกร') max = 31; 
+            else if(district === 'บางโคล่') max = 48;
+
+            if (max > 0) {
+                unitSelect.disabled = false;
+                for(let i=1; i<=max; i++) {
+                    const opt = document.createElement('option'); 
+                    opt.value = i; opt.text = i; 
+                    if(savedUnit == i) opt.selected = true;
+                    unitSelect.appendChild(opt);
+                }
+            } else { unitSelect.disabled = true; }
+        }
+
+        function handleFileSelect(input, boxId) {
+            const box = document.getElementById(boxId);
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                
+                if (!file.type.startsWith('image/')) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'ไฟล์ไม่ถูกต้อง',
+                        text: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG/PNG)',
+                        confirmButtonColor: '#2563eb',
+                        confirmButtonText: 'ตกลง'
+                    });
+                    input.value = '';
+                    return;
+                }
+
+                if (!fileStorage[boxId]) fileStorage[boxId] = [];
+                fileStorage[boxId].push(file);
+                updateBoxUI(boxId, file);
+                input.value = '';
+            }
+        }
+
+        function updateBoxUI(boxId, latestFile) {
+            const box = document.getElementById(boxId);
+            const count = fileStorage[boxId] ? fileStorage[boxId].length : 0;
+            const iconContainer = box.querySelector('.icon-container');
+            const labelText = box.querySelector('.label-text');
+
+            if (count > 0) {
+                const objectUrl = URL.createObjectURL(latestFile);
+                
+                box.style.backgroundImage = `linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8)), url('${objectUrl}')`;
+                box.style.backgroundSize = 'cover';
+                box.style.backgroundPosition = 'center';
+                box.style.backgroundRepeat = 'no-repeat';
+                box.classList.add('border-blue-500', 'ring-4', 'ring-blue-100');
+                
+                if(iconContainer) iconContainer.style.display = 'none';
+                if(labelText) labelText.classList.add('drop-shadow-md');
+
+                let badge = box.querySelector('.count-badge');
+                if (!badge) {
+                    badge = document.createElement('div');
+                    badge.className = 'count-badge';
+                    box.appendChild(badge);
+                }
+                badge.innerText = count + ' รูป';
+                badge.style.width = 'auto';
+                badge.style.padding = '0 10px';
+                badge.style.borderRadius = '14px';
+
+                if(!box.querySelector('.remove-btn')) {
+                    const btn = document.createElement('div');
+                    btn.className = 'remove-btn absolute -top-3 -left-3 bg-red-500 text-white w-9 h-9 rounded-full flex items-center justify-center shadow-lg cursor-pointer z-30 border-2 border-white hover:bg-red-600 transition-transform hover:scale-110';
+                    btn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+                    
+                    btn.onclick = (e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        // ใช้ SweetAlert แทน confirm()
+                        Swal.fire({
+                            title: 'ลบรูปภาพ?',
+                            text: "คุณต้องการลบรูปภาพทั้งหมดในช่องนี้ใช่หรือไม่",
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#ef4444', // red-500
+                            cancelButtonColor: '#64748b',  // slate-500
+                            confirmButtonText: 'ลบรูปภาพ',
+                            cancelButtonText: 'ยกเลิก'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                fileStorage[boxId] = []; 
+                                box.style.backgroundImage = '';
+                                box.classList.remove('border-blue-500', 'ring-4', 'ring-blue-100');
+                                if(iconContainer) iconContainer.style.display = 'flex';
+                                if(labelText) labelText.classList.remove('drop-shadow-md');
+                                if(badge) badge.remove();
+                                btn.remove();
+                                // ปล่อย RAM กรณีผู้ใช้ลบรูป
+                                URL.revokeObjectURL(objectUrl);
+                            }
+                        });
+                    };
+                    box.appendChild(btn);
+                }
+            }
+        }
+
+        const compressImage = async (file) => {
+            return new Promise((resolve, reject) => {
+                if (!file.type.match(/image.*/)) { reject(new Error("ไฟล์ไม่ใช่รูปภาพ")); return; }
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                
+                img.onload = () => {
+                    URL.revokeObjectURL(url); // ปล่อยหน่วยความจำไฟล์ตั้งต้นทันที
+                    
+                    // หน่วงเวลาเล็กน้อยให้ OS และ Browser ได้พักจัดการ RAM ป้องกันแอปค้าง
+                    setTimeout(() => {
+                        try {
+                            let canvas = document.createElement('canvas');
+                            let ctx = canvas.getContext('2d');
+                            
+                            // ลดขนาดลงเหลือ 1000px ช่วยเซฟ RAM ได้มหาศาล (iOS จำกัด RAM ต่อ Tab)
+                            const MAX_WIDTH = 1000; 
+                            let width = img.width;
+                            let height = img.height;
+                            
+                            if (width > MAX_WIDTH) { 
+                                height = Math.floor(height * (MAX_WIDTH / width)); 
+                                width = MAX_WIDTH; 
+                            }
+                            
+                            canvas.width = width; 
+                            canvas.height = height;
+                            ctx.drawImage(img, 0, 0, width, height);
+                            
+                            // ลด Quality ลงเหลือ 60% เพื่อให้ base64 เล็กลงส่งผ่านเน็ตมือถือได้เร็ว
+                            const base64Data = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+                            
+                            // กระตุ้นการทำ Garbage Collection สำหรับเครื่องรุ่นเก่า
+                            ctx.clearRect(0, 0, width, height);
+                            canvas.width = 0;
+                            canvas.height = 0;
+                            canvas = null;
+                            img.src = '';
+                            
+                            resolve(base64Data);
+                        } catch (err) {
+                            reject(err);
+                        }
+                    }, 50);
+                };
+                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("อ่านไฟล์ภาพไม่ได้")); };
+                img.src = url;
+            });
+        };
+
+        function saveDraft() {
+            const district = document.getElementById('district').value;
+            const unitNo = document.getElementById('unitNo').value;
+            if(district) localStorage.setItem('draft_district', district);
+            if(unitNo) localStorage.setItem('draft_unitNo', unitNo);
+        }
+
+        function restoreDraft() {
+            const district = localStorage.getItem('draft_district');
+            if(district) {
+                document.getElementById('district').value = district;
+                updateUnits();
+            }
+        }
+
+        function clearDraft() {
+            // ใช้ SweetAlert แทน confirm()
+            Swal.fire({
+                title: 'ยืนยันการล้างข้อมูล?',
+                text: "ข้อมูลแขวงและหน่วยที่คุณเลือกไว้จะถูกลบออก",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#2563eb', // blue-600
+                cancelButtonColor: '#64748b', // slate-500
+                confirmButtonText: 'ล้างข้อมูล',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    localStorage.clear(); 
+                    window.location.reload(); 
+                }
+            });
+        }
+        window.onload = restoreDraft;
+
+        async function submitForm(e) {
+            e.preventDefault();
+            const district = document.getElementById('district').value;
+            const unit = document.getElementById('unitNo').value;
+            
+            if(!district || !unit) { 
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ข้อมูลไม่ครบถ้วน',
+                    text: 'กรุณาเลือก "แขวง" และ "หน่วยเลือกตั้ง" ก่อนส่งข้อมูล',
+                    confirmButtonColor: '#2563eb',
+                    confirmButtonText: 'ตกลง'
+                });
+                return; 
+            }
+
+            const hasFiles = Object.values(fileStorage).some(files => files && files.length > 0);
+            if (!hasFiles) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ไม่พบรูปภาพหลักฐาน',
+                    text: 'กรุณาถ่ายรูปหรืออัปโหลดเอกสารอย่างน้อย 1 รายการ',
+                    confirmButtonColor: '#2563eb',
+                    confirmButtonText: 'ตกลง'
+                });
+                return;
+            }
+
+            // ยืนยันการส่งด้วย SweetAlert
+            const confirmResult = await Swal.fire({
+                title: 'ยืนยันการส่งข้อมูล',
+                html: `ต้องการส่งข้อมูลของ <b>${district}</b> หน่วยที่ <b>${unit}</b> ใช่หรือไม่?`,
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonColor: '#16a34a', // green-600
+                cancelButtonColor: '#64748b', // slate-500
+                confirmButtonText: '<i class="fa-solid fa-paper-plane"></i> ยืนยันการส่ง',
+                cancelButtonText: 'ตรวจสอบอีกครั้ง'
+            });
+
+            if (!confirmResult.isConfirmed) return;
+
+            // แสดงหน้าจอโหลด
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('submitBtn').disabled = true;
+            const loadingStatus = document.getElementById('loadingStatus');
+
+            try {
+                const formData = {
+                    district: district, 
+                    unitNo: unit,
+                    files: []
+                };
+
+                const fileMapping = [
+                    {boxId: 'box_gov_doc', prefix: 'GOV_DOC'},        
+                    {boxId: 'box_council_doc', prefix: 'COUNCIL_DOC'} 
+                ];
+
+                let totalFiles = 0;
+                fileMapping.forEach(m => { if(fileStorage[m.boxId]) totalFiles += fileStorage[m.boxId].length; });
+                
+                let processedCount = 0;
+                for (const item of fileMapping) {
+                    const files = fileStorage[item.boxId];
+                    if (files && files.length > 0) {
+                        for (let i = 0; i < files.length; i++) {
+                            processedCount++;
+                            loadingStatus.innerHTML = `กำลังเตรียมรูปภาพที่ ${processedCount}/${totalFiles}<br><span class="text-xs text-gray-400 mt-2 block">อาจใช้เวลาสักครู่...</span>`;
+                            
+                            try {
+                                const compressedBase64 = await compressImage(files[i]);
+                                formData.files.push({
+                                    name: `${item.prefix}_${i+1}.jpg`,
+                                    type: 'image/jpeg',
+                                    data: compressedBase64
+                                });
+                                
+                                // เว้นจังหวะให้ UI ได้อัปเดต และเคลียร์ RAM ระหว่างทำ Loop รูปจำนวนมาก
+                                await new Promise(r => setTimeout(r, 100));
+                            } catch (imgError) {
+                                console.error("Image Error:", imgError);
+                                // แจ้งเตือนข้อผิดพลาดรายไฟล์ แบบไม่ให้ขัดจังหวะการส่ง (Toast)
+                                Swal.fire({
+                                    toast: true,
+                                    position: 'top-end',
+                                    icon: 'error',
+                                    title: `ข้ามรูปภาพที่ผิดพลาด: ${item.prefix}`,
+                                    showConfirmButton: false,
+                                    timer: 3000
+                                });
+                            }
+                        }
+                    }
+                }
+
+                loadingStatus.innerHTML = `กำลังอัปโหลดข้อมูลเข้าสู่ระบบ...<br><span class="text-xs text-blue-500 mt-2 block">กรุณาอย่าปิดหน้าจอ</span>`;
+                
+                // ส่งข้อมูล
+                await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(formData) });
+                
+                localStorage.clear();
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                
+                // แจ้งเตือนความสำเร็จ
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ส่งข้อมูลสำเร็จ!',
+                    text: 'ระบบได้รับข้อมูลและรูปภาพเรียบร้อยแล้ว',
+                    confirmButtonColor: '#16a34a',
+                    confirmButtonText: 'ตกลง'
+                }).then(() => {
+                    window.location.reload();
+                });
+
+            } catch (error) {
+                console.error(error); 
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                document.getElementById('submitBtn').disabled = false;
+                
+                // แจ้งเตือนเมื่อเกิด Error
+                Swal.fire({
+                    icon: 'error',
+                    title: 'เกิดข้อผิดพลาดในการส่ง',
+                    text: error.message + ' (ลองตรวจสอบอินเทอร์เน็ตหรือลดขนาดภาพ)',
+                    confirmButtonColor: '#ef4444',
+                    confirmButtonText: 'ลองใหม่อีกครั้ง'
+                });
+            }
+        }
+    </script>
+</body>
+</html>
