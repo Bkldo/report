@@ -85,7 +85,7 @@
                             <span class="block font-bold text-green-700 text-xl mt-1">(ผ.ถ. 5/6)</span>
                             <span class="block text-sm text-gray-500 mt-2 bg-gray-100 px-3 py-1 rounded-full inline-block">แตะเพื่อถ่ายรูป / เลือกรูป</span>
                         </div>
-                        <input type="file" id="file_gov_doc" accept="image/*" class="hidden" onchange="handleFileSelect(this, 'box_gov_doc')">
+                        <input type="file" id="file_gov_doc" accept="image/*" multiple class="hidden" onchange="handleFileSelect(this, 'box_gov_doc')">
                     </label>
                 </div>
             </div>
@@ -107,7 +107,7 @@
                             <span class="block font-bold text-pink-600 text-xl mt-1">(ส.ถ. 5/6)</span>
                             <span class="block text-sm text-gray-500 mt-2 bg-gray-100 px-3 py-1 rounded-full inline-block">แตะเพื่อถ่ายรูป / เลือกรูป</span>
                         </div>
-                        <input type="file" id="file_council_doc" accept="image/*" class="hidden" onchange="handleFileSelect(this, 'box_council_doc')">
+                        <input type="file" id="file_council_doc" accept="image/*" multiple class="hidden" onchange="handleFileSelect(this, 'box_council_doc')">
                     </label>
                 </div>
             </div>
@@ -159,29 +159,31 @@
         }
 
         function handleFileSelect(input, boxId) {
-            const box = document.getElementById(boxId);
-            if (input.files && input.files[0]) {
-                const file = input.files[0];
-                
-                if (!file.type.startsWith('image/')) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'ไฟล์ไม่ถูกต้อง',
-                        text: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG/PNG)',
-                        confirmButtonColor: '#2563eb',
-                        confirmButtonText: 'ตกลง'
-                    });
-                    input.value = '';
-                    return;
-                }
+            if (!input.files || input.files.length === 0) return;
 
-                if (!fileStorage[boxId]) fileStorage[boxId] = [];
-                fileStorage[boxId].push(file);
-                updateBoxUI(boxId, file);
-                input.value = '';
+            const selectedFiles = Array.from(input.files);
+            const imageFiles = selectedFiles.filter(file => file.type && file.type.startsWith('image/'));
+
+            if (imageFiles.length !== selectedFiles.length) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ไฟล์ไม่ถูกต้อง',
+                    text: 'กรุณาเลือกเฉพาะไฟล์รูปภาพเท่านั้น (JPG/PNG)',
+                    confirmButtonColor: '#2563eb',
+                    confirmButtonText: 'ตกลง'
+                });
             }
-        }
 
+            if (imageFiles.length === 0) {
+                input.value = '';
+                return;
+            }
+
+            if (!fileStorage[boxId]) fileStorage[boxId] = [];
+            fileStorage[boxId].push(...imageFiles);
+            updateBoxUI(boxId, imageFiles[imageFiles.length - 1]);
+            input.value = '';
+        }
         function updateBoxUI(boxId, latestFile) {
             const box = document.getElementById(boxId);
             const count = fileStorage[boxId] ? fileStorage[boxId].length : 0;
